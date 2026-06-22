@@ -1,0 +1,17 @@
+Workspace Project 
+
+
+
+User Request
+   ↓
+Route (URL)
+   ↓
+Middleware (check login)
+   ↓
+Controller (receive request)
+   ↓
+Service (logic)
+   ↓
+Database (Prisma)
+   ↓
+Response (result)

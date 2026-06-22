@@ -1,0 +1,1 @@
+// chek if user already logged in and correct JWT token
