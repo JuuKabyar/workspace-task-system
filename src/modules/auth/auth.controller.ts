@@ -1,122 +1,96 @@
-// // register success ဖြစ်သွားရင် 
-
 import { Request, Response } from "express";
-import { registerService, loginService } from "./auth.service";
+import { registerService, loginService, refreshTokenService } from "./auth.service";
+import { successResponse, errorResponse } from "../../utils/response";
 
-const accessCookieOptions = {
-  httpOnly: true,
-  maxAge: 15 * 60 * 1000,
-};
+// Register
+export const register = async (req: Request, res: Response) => {
+  const workspaceName = req.body.workspaceName;
+  const name = req.body.name;
+  const email = req.body.email;
+  const password = req.body.password;
 
-const refreshCookieOptions = {
-  httpOnly: true,
-  maxAge: 7 * 24 * 60 * 60 * 1000,
-};
-
-export const register = async (
-  req: Request,
-  res: Response
-) => {
   try {
-    const { workspaceName, name, email, password } =
-      req.body;
-
     const result = await registerService(
-      workspaceName,
-      name,
-      email,
-      password
-    );
+        workspaceName,
+        name,
+        email,
+        password
+    ) // Create workspace and owner user
 
-    // Save tokens in cookies
-    res.cookie(
-      "accessToken",
-      result.accessToken,
-      accessCookieOptions
-    );
+    res.cookie("accessToken", result.accessToken,{
+      httpOnly: true,
+      maxAge: 15 * 60 * 1000
+    }) // Save access token in cookie
 
-    res.cookie(
-      "refreshToken",
-      result.refreshToken,
-      refreshCookieOptions
-    );
+    res.cookie("refreshToken", result.refreshToken, {
+      httpOnly: true,
+      maxAge: 7 * 24 * 60 * 60 * 1000
+    }) // Save refresh token in cookie
 
-    res.status(201).json({
-      success: true,
-      message: "Workspace created successfully",
+    return successResponse(res, 201, "Register Successful.", result)
 
-      // For development only
-      accessToken: result.accessToken,
-      refreshToken: result.refreshToken,
-
-      user: result.user,
-      workspace: result.workspace,
-    });
   } catch (error) {
-    res.status(400).json({
-      success: false,
-      message:
-        error instanceof Error
+    return errorResponse(res, 400,
+      error instanceof Error
           ? error.message
-          : "Registration failed",
-    });
+          : "Register Failed."
+    )
   }
-};
+}
 
-export const login = async (
-  req: Request,
-  res: Response
-) => {
+// Login
+export const login = async (req: Request, res: Response) => {
+  const userIdFromToken = req.user?.userId; // Get user id from token
+  const email = req.body.email;
+  const password = req.body.password;
+
   try {
-    const { email, password } = req.body;
+    const result = await loginService(email, password) // Check email and password
 
-    const result = await loginService(email, password);
+    if(result.id !== userIdFromToken){
+      return errorResponse(res, 401, "This Token Does Not Belong To This Account.")
+    }
 
-    // Save tokens in cookies
-    res.cookie(
-      "accessToken",
-      result.accessToken,
-      accessCookieOptions
-    );
+    return successResponse(res, 200, "Login Successful.", result)
 
-    res.cookie(
-      "refreshToken",
-      result.refreshToken,
-      refreshCookieOptions
-    );
-
-    res.status(200).json({
-      success: true,
-      message: "Login successful",
-
-      // For development only
-      accessToken: result.accessToken,
-      refreshToken: result.refreshToken,
-
-      user: result.user,
-    });
   } catch (error) {
-    res.status(400).json({
-      success: false,
-      message:
-        error instanceof Error
+    return errorResponse(res, 400,
+      error instanceof Error
           ? error.message
-          : "Login failed",
-    });
+          : "Login Failed."
+    )
   }
-};
+}
 
-// logout
-export const logout = async (
-  req: Request,
-  res: Response
-) => {
-  res.clearCookie("accessToken");
+// Refresh Token
+export const refreshToken = async (req: Request, res: Response) => {
+  const authHeader = req.headers.authorization; // Get Authorization header
 
-  res.clearCookie("refreshToken");
+  if(!authHeader){
+    return errorResponse(res, 401, "Refresh Token Require.")
+  }
 
-  res.status(200).json({
-    success: true,
-    message: "Logout successful",
-  });
-};
+  const refreshToken = authHeader.split(" ")[1]; // Extract refresh token
+
+  try {
+    const result = await refreshTokenService(refreshToken) // Generate new access token
+
+    return successResponse(res, 200, "Access Token Refreshed Successfully.", result)
+
+  } catch (error) {
+
+    return errorResponse(res, 401, "Invalid Or Expired Refresh Token.")
+  }
+}
+
+// Logout
+export const logout = async (req: Request, res: Response) => {
+  const userId = req.user?.userId; // Get current user id
+
+  console.log(userId) 
+
+  res.clearCookie("accessToken"); // Remove access token
+  res.clearCookie("refreshToken"); // Remove refresh token
+
+  return successResponse(res, 200, "Logout Successful.")
+}
