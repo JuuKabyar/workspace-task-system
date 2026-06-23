@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { registerService, loginService, refreshTokenService } from "./auth.service";
+import { registerService, loginService, refreshTokenService, getMyProfileService } from "./auth.service";
 import { successResponse, errorResponse } from "../../utils/response";
 
 // Register
@@ -93,4 +93,22 @@ export const logout = async (req: Request, res: Response) => {
   res.clearCookie("refreshToken"); // Remove refresh token
 
   return successResponse(res, 200, "Logout Successful.")
+}
+
+// Get My Profile
+export const getMyProfile = async (req: Request, res: Response) => {
+  const userId = req.user?.userId; // Get user id from token
+
+  try {
+    const user = await getMyProfileService(userId!) // Find current user
+
+    return successResponse(res, 200, "Profile Fetched Successfully.", user)
+
+  } catch (error) {
+    return errorResponse(res, 404,
+      error instanceof Error
+          ? error.message
+          : "Profile Fetch Failed."
+    )
+  }
 }

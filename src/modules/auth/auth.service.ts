@@ -114,3 +114,26 @@ export const refreshTokenService = async (refreshToken: string) => {
       accessToken
   }
 }
+
+// Get My Profile
+export const getMyProfileService = async (userId: number) => {
+  const user = await prisma.user.findUnique({
+    where: {
+      id: userId
+    },
+
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+      avatar: true,
+      workspaceId: true
+    }
+  }) // Find user by id
+
+  if(!user){
+    throw new Error("User Not Found.")
+  }
+  return user
+}
