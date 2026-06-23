@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { registerService, loginService, refreshTokenService, getMyProfileService } from "./auth.service";
 import { successResponse, errorResponse } from "../../utils/response";
+import { prisma } from "../../lib/prisma";
 
 // Register
 export const register = async (req: Request, res: Response) => {
@@ -86,8 +87,15 @@ export const refreshToken = async (req: Request, res: Response) => {
 // Logout
 export const logout = async (req: Request, res: Response) => {
   const userId = req.user?.userId; // Get current user id
-
-  console.log(userId) 
+  
+  await prisma.user.update({
+    where: {
+      id: userId
+    },
+    data: {
+      refreshToken: null
+    }
+  }) // Remove refresh token from database
 
   res.clearCookie("accessToken"); // Remove access token
   res.clearCookie("refreshToken"); // Remove refresh token

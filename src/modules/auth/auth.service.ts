@@ -58,6 +58,15 @@ export const registerService = async (
   const accessToken = generateAccessToken(payload); // Generate access token
   const refreshToken = generateRefreshToken(payload); // Generate refresh token
 
+  await prisma.user.update({
+    where: {
+      id: user.id
+    },
+    data: {
+      refreshToken: refreshToken
+    }
+  }) // Save refresh token in database
+
   return {
       accessToken,
       refreshToken,
@@ -95,17 +104,30 @@ export const loginService = async (email: string, password: string) => {
 
 // Refresh Token
 export const refreshTokenService = async (refreshToken: string) => {
-  const decoded =
-      verifyRefreshToken(refreshToken) as {
-          userId: number,
-          workspaceId: number,
-          role: string
-      } // Verify refresh token
+  const decoded = verifyRefreshToken(refreshToken) as {
+    userId: number,
+    workspaceId: number,
+    role: string
+  } // Verify refresh token
+
+  const user = await prisma.user.findUnique({
+    where: {
+      id: decoded.userId
+    }
+  }) // Find user by id
+
+  if(!user){
+    throw new Error("User Not Found.")
+  }
+
+  if(user.refreshToken !== refreshToken){
+    throw new Error("Invalid Refresh Token.")
+  }
 
   const payload = {
-      userId: decoded.userId,
-      workspaceId: decoded.workspaceId,
-      role: decoded.role
+    userId: decoded.userId,
+    workspaceId: decoded.workspaceId,
+    role: decoded.role
   } // Create payload for new token
 
   const accessToken = generateAccessToken(payload); // Generate new access token
