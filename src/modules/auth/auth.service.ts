@@ -99,7 +99,16 @@ export const loginService = async (email: string, password: string) => {
           "Invalid Email or Password."
       )
   }
-  return user;
+  return {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    avatar: user.avatar,
+    role: user.role,
+    workspaceId: user.workspaceId,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt
+  };
 }
 
 // Refresh Token
