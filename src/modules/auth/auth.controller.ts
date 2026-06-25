@@ -1,122 +1,259 @@
-import { Request, Response } from "express";
-import { registerService, loginService, refreshTokenService, getMyProfileService } from "./auth.service";
-import { successResponse, errorResponse } from "../../utils/response";
+import { Request, Response, NextFunction } from "express";
+
+import {
+  registerService,
+  loginService,
+  refreshTokenService,
+  getMyProfileService,
+  updateProfileService,
+  updateAvatarService
+} from "./auth.service";
+
+import { successResponse } from "../../utils/response";
 import { prisma } from "../../lib/prisma";
 
+
 // Register
-export const register = async (req: Request, res: Response) => {
-  const workspaceName = req.body.workspaceName;
-  const name = req.body.name;
-  const email = req.body.email;
-  const password = req.body.password;
+export const register = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
 
   try {
+
     const result = await registerService(
-        workspaceName,
-        name,
-        email,
-        password
-    ) // Create workspace and owner user
+      req.body.name,
+      req.body.email,
+      req.body.password
+    ); // Create user only
 
-    res.cookie("accessToken", result.accessToken,{
-      httpOnly: true,
-      maxAge: 15 * 60 * 1000
-    }) // Save access token in cookie
-
-    res.cookie("refreshToken", result.refreshToken, {
-      httpOnly: true,
-      maxAge: 7 * 24 * 60 * 60 * 1000
-    }) // Save refresh token in cookie
-
-    return successResponse(res, 201, "Register Successful.", result)
+    return successResponse(
+      res,
+      201,
+      "Registration successful. Please log in.",
+      result
+    );
 
   } catch (error) {
-    return errorResponse(res, 400,
-      error instanceof Error
-          ? error.message
-          : "Register Failed."
-    )
+    next(error);
   }
-}
+
+};
+
 
 // Login
-export const login = async (req: Request, res: Response) => {
-  const userIdFromToken = req.user?.userId; // Get user id from token
-  const email = req.body.email;
-  const password = req.body.password;
+export const login = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
 
   try {
-    const result = await loginService(email, password) // Check email and password
 
-    if(result.id !== userIdFromToken){
-      return errorResponse(res, 401, "This Token Does Not Belong To This Account.")
-    }
+    const result = await loginService(
+      req.body.email,
+      req.body.password
+    ); // Login and generate tokens
 
-    return successResponse(res, 200, "Login Successful.", result)
+    return successResponse(
+      res,
+      200,
+      "Login successful.",
+      result
+    );
 
   } catch (error) {
-    return errorResponse(res, 400,
-      error instanceof Error
-          ? error.message
-          : "Login Failed."
-    )
+    next(error);
   }
-}
+
+};
+
 
 // Refresh Token
-export const refreshToken = async (req: Request, res: Response) => {
-  const authHeader = req.headers.authorization; // Get Authorization header
-
-  if(!authHeader){
-    return errorResponse(res, 401, "Refresh Token Require.")
-  }
-
-  const refreshToken = authHeader.split(" ")[1]; // Extract refresh token
+export const refreshToken = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
 
   try {
-    const result = await refreshTokenService(refreshToken) // Generate new access token
 
-    return successResponse(res, 200, "Access Token Refreshed Successfully.", result)
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader) {
+      throw new Error("Refresh token is required.");
+    }
+
+    const token =
+      authHeader.split(" ")[1];
+
+    if (!token) {
+      throw new Error("Invalid refresh token format.");
+    }
+
+    const result =
+      await refreshTokenService(token); // Generate new access token
+
+    return successResponse(
+      res,
+      200,
+      "Access token refreshed successfully.",
+      result
+    );
 
   } catch (error) {
-
-    return errorResponse(res, 401, "Invalid Or Expired Refresh Token.")
+    next(error);
   }
-}
+
+};
+
 
 // Logout
-export const logout = async (req: Request, res: Response) => {
-  const userId = req.user?.userId; // Get current user id
-  
-  await prisma.user.update({
-    where: {
-      id: userId
-    },
-    data: {
-      refreshToken: null
-    }
-  }) // Remove refresh token from database
-
-  res.clearCookie("accessToken"); // Remove access token
-  res.clearCookie("refreshToken"); // Remove refresh token
-
-  return successResponse(res, 200, "Logout Successful.")
-}
-
-// Get My Profile
-export const getMyProfile = async (req: Request, res: Response) => {
-  const userId = req.user?.userId; // Get user id from token
+export const logout = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
 
   try {
-    const user = await getMyProfileService(userId!) // Find current user
 
-    return successResponse(res, 200, "Profile Fetched Successfully.", user)
+    const userId =
+      req.user?.userId;
+
+    if (!userId) {
+      throw new Error("Unauthorized.");
+    }
+
+    await prisma.user.update({
+      where: {
+        id: userId
+      },
+      data: {
+        refreshToken: null
+      }
+    }); // Remove refresh token
+
+    return successResponse(
+      res,
+      200,
+      "Logout successful."
+    );
 
   } catch (error) {
-    return errorResponse(res, 404,
-      error instanceof Error
-          ? error.message
-          : "Profile Fetch Failed."
-    )
+    next(error);
   }
-}
+
+};
+
+
+// Get My Profile
+export const getMyProfile = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+
+  try {
+
+    const userId =
+      req.user?.userId;
+
+    if (!userId) {
+      throw new Error("Unauthorized.");
+    }
+
+    const result =
+      await getMyProfileService(userId); // Find current user
+
+    return successResponse(
+      res,
+      200,
+      "Profile fetched successfully.",
+      result
+    );
+
+  } catch (error) {
+    next(error);
+  }
+
+};
+
+
+// Update Profile
+export const updateProfile = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+
+  try {
+
+    const userId =
+      req.user?.userId;
+
+    if (!userId) {
+      throw new Error("Unauthorized.");
+    }
+
+    const result =
+      await updateProfileService(
+        userId,
+        req.body.name
+      ); // Update profile
+
+    return successResponse(
+      res,
+      200,
+      "Profile updated successfully.",
+      result
+    );
+
+  } catch (error) {
+    next(error);
+  }
+
+};
+
+
+// Update Avatar
+export const updateAvatar = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+
+  try {
+
+    const userId =
+      req.user?.userId;
+
+    if (!userId) {
+      throw new Error("Unauthorized.");
+    }
+
+    if (!req.file) {
+      throw new Error("Avatar file is required.");
+    }
+
+    const avatar =
+      `/uploads/avatars/${req.file.filename}`;
+
+    const result =
+      await updateAvatarService(
+        userId,
+        avatar
+      ); // Update avatar
+
+    return successResponse(
+      res,
+      200,
+      "Avatar updated successfully.",
+      result
+    );
+
+  } catch (error) {
+    next(error);
+  }
+
+};

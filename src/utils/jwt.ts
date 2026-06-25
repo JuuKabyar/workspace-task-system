@@ -45,13 +45,30 @@ export const verifyAccessToken = (
 };
 
 // Verify refresh token
-export const verifyRefreshToken = (
-  token: string
-) => {
-  const decoded = jwt.verify(
-    token,
-    process.env.JWT_REFRESH_SECRET!
-  );
+export const verifyRefreshToken = (token: string) => {
+  const decoded = jwt.verify(token, process.env.JWT_REFRESH_SECRET!);
 
   return decoded;
 };
+
+// Generate Invitation Token
+export const generateInvitationToken = (payload: {
+    invitationId: number,
+    email: string
+  }) => {
+    return jwt.sign(
+      payload,
+      process.env.JWT_SECRET!,
+      {
+          expiresIn: "7d"
+      }
+    )
+}
+
+// Verify Invitation Token
+export const verifyInvitationToken = (token: string) => {
+  return jwt.verify(
+    token,
+    process.env.JWT_SECRET!
+  )
+}

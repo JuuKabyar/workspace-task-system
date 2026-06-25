@@ -1,22 +1,43 @@
-// ckeck roles
-
 import { Request, Response, NextFunction } from "express";
-import { errorResponse } from "../utils/response";
+import { prisma } from "../lib/prisma";
 
-export const roleMiddleware = (roles: string[]) => {
+export const roleMiddleware = (allowedRoles: string[]) => {
+  return async (req: Request, res: Response, next: NextFunction) => {
 
-  return (req: Request, res: Response, next: NextFunction) => {
+    const userId = req.user?.userId;
+    const workspaceId = req.user?.workspaceId;
 
-    const userRole = req.user?.role; // Get user role from token
-
-    if(!userRole){
-      return errorResponse(res, 401, "User Role Not Found.")
+    // User not authenticated
+    if (!userId || !workspaceId) {
+      return res.status(401).json({
+        success: false,
+        message: "User is not authenticated.",
+        errorCode: "NOT_AUTHENTICATED"
+      });
     }
 
-    if(!roles.includes(userRole)){
-      return errorResponse(res, 403, "Access Denied.")
+    const workspaceUser = await prisma.workspaceUser.findFirst({
+      where: { userId, workspaceId }
+    });
+
+    // User not found in workspace
+    if (!workspaceUser) {
+      return res.status(404).json({
+        success: false,
+        message: "User does not belong to this workspace.",
+        errorCode: "WORKSPACE_USER_NOT_FOUND"
+      });
     }
 
-    next(); // Continue to next controller
-  }
-}
+    // Role permission denied
+    if (!allowedRoles.includes(workspaceUser.role)) {
+      return res.status(403).json({
+        success: false,
+        message: "You do not have permission to perform this action.",
+        errorCode: "ACCESS_DENIED"
+      });
+    }
+
+    next();
+  };
+};

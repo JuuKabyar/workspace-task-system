@@ -1,16 +1,75 @@
-// to define auth urls
+// Define auth routes
 
 import express from "express";
-import { register, login, logout, refreshToken, getMyProfile } from "./auth.controller";
+
+import {
+  register,
+  login,
+  logout,
+  refreshToken,
+  getMyProfile,
+  updateProfile,
+  updateAvatar
+} from "./auth.controller";
+
 import { authMiddleware } from "../../middlewares/auth.middleware";
+import { upload } from "../../middlewares/upload.middleware";
 
 const router = express.Router();
 
-router.post("/register", register);
-// requires access token to login
-router.post("/login", authMiddleware, login);
-router.post("/logout", authMiddleware, logout);
-router.post("/refresh", refreshToken);
-router.get("/me", authMiddleware, getMyProfile);
+
+// Register User
+router.post(
+  "/register",
+  register
+);
+
+
+// Login User
+router.post(
+  "/login",
+  login
+);
+
+
+// Refresh Access Token
+router.post(
+  "/refresh",
+  refreshToken
+);
+
+
+// Logout User
+router.post(
+  "/logout",
+  authMiddleware,
+  logout
+);
+
+
+// Get My Profile
+router.get(
+  "/me",
+  authMiddleware,
+  getMyProfile
+);
+
+
+// Update Profile
+router.patch(
+  "/profile",
+  authMiddleware,
+  updateProfile
+);
+
+
+// Update Avatar
+router.patch(
+  "/avatar",
+  authMiddleware,
+  upload.single("avatar"),
+  updateAvatar
+);
+
 
 export default router;

@@ -15,3 +15,7 @@ Service (logic)
 Database (Prisma)
    ↓
 Response (result)
+
+* ✅ invitation.route.ts
+* ✅ auth.route.ts
+* ✅ auth.middleware.ts 

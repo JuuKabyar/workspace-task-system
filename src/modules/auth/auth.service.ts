@@ -1,170 +1,234 @@
 import { prisma } from "../../lib/prisma";
-import { Role } from "../../../generated/prisma/client";
-import { hashPassword, comparePassword } from "../../utils/bcrypt";
-import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from "../../utils/jwt";
+
+import {
+  hashPassword,
+  comparePassword
+} from "../../utils/bcrypt";
+
+import {
+  generateAccessToken,
+  generateRefreshToken,
+  verifyRefreshToken
+} from "../../utils/jwt";
+
 
 // Register
 export const registerService = async (
-    workspaceName: string,
-    name: string,
-    email: string,
-    password: string
+  name: string,
+  email: string,
+  password: string
 ) => {
-  const existingUser = await prisma.user.findUnique({
-      where: {
-          email: email
-      }
-  }) // Find user by email
 
-  if(existingUser){
-      throw new Error(
-          "Email Already Exists."
-      )
+  const existingUser = await prisma.user.findUnique({
+    where: {
+      email: email
+    }
+  }); // Check existing user
+
+  if (existingUser) {
+    throw new Error("Email already exists.");
   }
 
-  const hashedPassword = await hashPassword(password); // Hash password
-
-  const workspace = await prisma.workspace.create({
-      data: {
-          name: workspaceName
-      }
-  }) // Create workspace
+  const hashedPassword =
+    await hashPassword(password); // Hash password
 
   const user = await prisma.user.create({
     data: {
-        name: name,
-        email: email,
-        password: hashedPassword,
-        role: Role.owner,
-        workspaceId: workspace.id
-    }
-  }) // Create owner user
-
-  const updatedWorkspace = await prisma.workspace.update({
-    where: {
-        id: workspace.id
+      name: name,
+      email: email,
+      password: hashedPassword
     },
-    data: {
-        ownerId: user.id
+    omit: {
+      password: true,
+      refreshToken: true
     }
-  }) // Save owner id in workspace
+  }); // Create user only
 
-  const payload = {
-      userId: user.id,
-      workspaceId: user.workspaceId,
-      role: user.role
-  } // Create JWT payload
+  return user;
 
-  const accessToken = generateAccessToken(payload); // Generate access token
-  const refreshToken = generateRefreshToken(payload); // Generate refresh token
+};
 
-  await prisma.user.update({
-    where: {
-      id: user.id
-    },
-    data: {
-      refreshToken: refreshToken
-    }
-  }) // Save refresh token in database
-
-  return {
-      accessToken,
-      refreshToken,
-      user,
-      workspace: updatedWorkspace
-  }
-}
 
 // Login
-export const loginService = async (email: string, password: string) => {
+export const loginService = async (
+  email: string,
+  password: string
+) => {
+
   const user = await prisma.user.findUnique({
     where: {
-        email: email
+      email: email
     }
-  }) // Find user by email
+  }); // Find user by email
 
-  if(!user){
-      throw new Error(
-          "Invalid Email or Password."
-      )
+  if (!user) {
+    throw new Error("Invalid email or password.");
   }
 
-  const isPasswordCorrect = await comparePassword(
+  const isPasswordCorrect =
+    await comparePassword(
       password,
       user.password
-  ) // Compare password
+    ); // Compare password
 
-  if(!isPasswordCorrect){
-      throw new Error(
-          "Invalid Email or Password."
-      )
+  if (!isPasswordCorrect) {
+    throw new Error("Invalid email or password.");
   }
+
+  const workspaceUser =
+    await prisma.workspaceUser.findFirst({
+      where: {
+        userId: user.id
+      }
+    }); // Find first workspace
+
+  const payload = {
+    userId: user.id,
+    workspaceId: workspaceUser?.workspaceId,
+    role: workspaceUser?.role
+  }; // Create JWT payload
+
+  const accessToken =
+    generateAccessToken(payload);
+
+  const refreshToken =
+    generateRefreshToken(payload);
+
+  const updatedUser =
+    await prisma.user.update({
+      where: {
+        id: user.id
+      },
+      data: {
+        refreshToken: refreshToken
+      },
+      omit: {
+        password: true,
+        refreshToken: true
+      }
+    }); // Save refresh token
+
   return {
-    id: user.id,
-    name: user.name,
-    email: user.email,
-    avatar: user.avatar,
-    role: user.role,
-    workspaceId: user.workspaceId,
-    createdAt: user.createdAt,
-    updatedAt: user.updatedAt
+    accessToken,
+    refreshToken,
+    user: updatedUser,
+    workspace: workspaceUser ?? null
   };
-}
+
+};
 
 // Refresh Token
-export const refreshTokenService = async (refreshToken: string) => {
+export const refreshTokenService = async (
+  refreshToken: string
+) => {
+
   const decoded = verifyRefreshToken(refreshToken) as {
     userId: number,
-    workspaceId: number,
-    role: string
-  } // Verify refresh token
+    workspaceId: number | null,
+    role: string | null
+  }; // Verify refresh token
 
   const user = await prisma.user.findUnique({
     where: {
       id: decoded.userId
     }
-  }) // Find user by id
+  }); // Find user
 
-  if(!user){
-    throw new Error("User Not Found.")
+  if (!user) {
+    throw new Error("User not found.");
   }
 
-  if(user.refreshToken !== refreshToken){
-    throw new Error("Invalid Refresh Token.")
+  if (user.refreshToken !== refreshToken) {
+    throw new Error("Invalid refresh token.");
   }
 
   const payload = {
     userId: decoded.userId,
     workspaceId: decoded.workspaceId,
     role: decoded.role
-  } // Create payload for new token
+  };
 
-  const accessToken = generateAccessToken(payload); // Generate new access token
+  const accessToken =
+    generateAccessToken(payload); // Generate new access token
 
   return {
-      accessToken
-  }
-}
+    accessToken
+  };
+
+};
+
 
 // Get My Profile
-export const getMyProfileService = async (userId: number) => {
+export const getMyProfileService = async (
+  userId: number
+) => {
+
   const user = await prisma.user.findUnique({
     where: {
       id: userId
     },
-
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      role: true,
-      avatar: true,
-      workspaceId: true
+    omit: {
+      password: true,
+      refreshToken: true
     }
-  }) // Find user by id
+  }); // Find user
 
-  if(!user){
-    throw new Error("User Not Found.")
+  if (!user) {
+    throw new Error("User not found.");
   }
-  return user
-}
+
+  return user;
+
+};
+
+
+// Update Profile
+export const updateProfileService = async (
+  userId: number,
+  name: string
+) => {
+
+  if (!name) {
+    throw new Error("Name is required.");
+  }
+
+  const user = await prisma.user.update({
+    where: {
+      id: userId
+    },
+    data: {
+      name: name
+    },
+    omit: {
+      password: true,
+      refreshToken: true
+    }
+  }); // Update profile
+
+  return user;
+
+};
+
+
+// Update Avatar
+export const updateAvatarService = async (
+  userId: number,
+  avatar: string
+) => {
+
+  const user = await prisma.user.update({
+    where: {
+      id: userId
+    },
+    data: {
+      avatar: avatar
+    },
+    omit: {
+      password: true,
+      refreshToken: true
+    }
+  }); // Update avatar
+
+  return user;
+
+};

@@ -1,9 +1,9 @@
 declare namespace Express {
-  export interface Request {
+  interface Request {
     user?: {
       userId: number;
-      workspaceId: number;
-      role: string;
+      workspaceId: number | null;
+      role: string | null;
     };
   }
 }
