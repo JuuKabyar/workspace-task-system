@@ -1,18 +1,9 @@
 // Check user authentication
 
-import {
-  Request,
-  Response,
-  NextFunction
-} from "express";
-
+import { Request, Response, NextFunction } from "express";
 import { verifyAccessToken } from "../utils/jwt";
 
-export const authMiddleware = (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
+export const authMiddleware = (req: Request, res: Response, next: NextFunction) => {
 
   const authHeader =
     req.headers.authorization; // Get authorization header
@@ -33,9 +24,7 @@ export const authMiddleware = (
   }
 
   try {
-
-    const decoded =
-      verifyAccessToken(accessToken) as {
+    const decoded = verifyAccessToken(accessToken) as {
         userId: number,
         workspaceId: number | null,
         role: string | null
@@ -44,9 +33,7 @@ export const authMiddleware = (
     req.user = decoded; // Save payload in request
 
     next();
-
   } catch (error) {
     next(error);
   }
-
 };

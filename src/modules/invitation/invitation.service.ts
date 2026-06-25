@@ -1,13 +1,7 @@
 import { prisma } from "../../lib/prisma";
 import { Role } from "../../../generated/prisma/enums";
-
 import { sendMail } from "../../utils/mail";
-
-import {
-  generateInvitationToken,
-  verifyInvitationToken
-} from "../../utils/jwt";
-
+import { generateInvitationToken, verifyInvitationToken } from "../../utils/jwt";
 
 // Invite User
 export const inviteUserService = async (
@@ -17,7 +11,6 @@ export const inviteUserService = async (
   email: string,
   role: Role
 ) => {
-
   if (inviterRole === "owner" && role === "owner") {
     throw new Error("Owner can only invite admin or member.");
   }
@@ -26,82 +19,66 @@ export const inviteUserService = async (
     throw new Error("Admin can only invite member.");
   }
 
-  const existingInvitation =
-    await prisma.invitation.findFirst({
-      where: {
-        email: email,
-        workspaceId: workspaceId,
-        status: "pending"
-      }
-    }); // Check duplicate pending invitation
+  const existingInvitation = await prisma.invitation.findFirst({
+    where: {
+      email: email,
+      workspaceId: workspaceId,
+      status: "pending"
+    }
+  }); // Check duplicate invitation
 
   if (existingInvitation) {
     throw new Error("User already invited.");
   }
 
-  const existingWorkspaceUser =
-    await prisma.workspaceUser.findFirst({
-      where: {
-        workspaceId: workspaceId,
-        user: {
-          email: email
-        }
+  const existingWorkspaceUser = await prisma.workspaceUser.findFirst({
+    where: {
+      workspaceId: workspaceId,
+      user: {
+        email: email
       }
-    }); // Check already joined workspace
+    }
+  }); // Check already joined
 
   if (existingWorkspaceUser) {
     throw new Error("User already joined this workspace.");
   }
 
-  const invitation =
-    await prisma.invitation.create({
-      data: {
-        email: email,
-        role: role,
-        token: "",
-        workspaceId: workspaceId,
-        invitedById: invitedById
-      }
-    }); // Create invitation first
+  const invitation = await prisma.invitation.create({
+    data: {
+      email: email,
+      role: role,
+      token: "",
+      workspaceId: workspaceId,
+      invitedById: invitedById
+    }
+  }); // Create invitation
 
-  const token =
-    generateInvitationToken({
-      invitationId: invitation.id,
-      email: invitation.email
-    }); // Create invitation JWT token
+  const token = generateInvitationToken({
+    invitationId: invitation.id,
+    email: invitation.email
+  }); // Create invitation token
 
-  const updatedInvitation =
-    await prisma.invitation.update({
-      where: {
-        id: invitation.id
-      },
-      data: {
-        token: token
-      }
-    }); // Save token
+  const updatedInvitation = await prisma.invitation.update({
+    where: {
+      id: invitation.id
+    },
+    data: {
+      token: token
+    }
+  }); // Save token
 
-//   const invitationLink = `${process.env.FRONTEND_URL}/accept-invitation?invitationToken=${token}`; // frondend
+  // const invitationLink = `${process.env.FRONTEND_URL}/accept-invitation?invitationToken=${token}`;
+  const invitationLink = `http://localhost:3000/api/invitations?invitationToken=${token}`;
 
-    const invitationLink = `http://localhost:3000/api/invitations?invitationToken=${token}`; // backend
-
-  const html =
-  `
+  const html = `
     <h2>Workspace Invitation</h2>
-
     <p>You have been invited to join a workspace.</p>
-
     <p>Role: ${role}</p>
-
-    <a href="${invitationLink}">
-      Accept Invitation
-    </a>
+    <a href="${invitationLink}">Accept Invitation</a>
   `;
 
-  await sendMail(
-    email,
-    "Workspace Invitation",
-    html
-  ); // Send invitation email
+  await sendMail(email, "Workspace Invitation", html); // Send invitation email
 
   return {
     id: updatedInvitation.id,
@@ -112,30 +89,23 @@ export const inviteUserService = async (
     status: updatedInvitation.status,
     invitationToken: token
   };
-
 };
 
-
 // Get Invitation
-export const getInvitationService = async (
-  token: string
-) => {
+export const getInvitationService = async (token: string) => {
+  const decoded = verifyInvitationToken(token) as {
+    invitationId: number,
+    email: string
+  }; // Verify invitation token
 
-  const decoded =
-    verifyInvitationToken(token) as {
-      invitationId: number,
-      email: string
-    }; // Verify invitation token
-
-  const invitation =
-    await prisma.invitation.findUnique({
-      where: {
-        id: decoded.invitationId
-      },
-      include: {
-        workspace: true
-      }
-    }); // Find invitation
+  const invitation = await prisma.invitation.findUnique({
+    where: {
+      id: decoded.invitationId
+    },
+    include: {
+      workspace: true
+    }
+  }); // Find invitation
 
   if (!invitation) {
     throw new Error("Invitation not found.");
@@ -145,12 +115,11 @@ export const getInvitationService = async (
     throw new Error("Invalid invitation token.");
   }
 
-  const user =
-    await prisma.user.findUnique({
-      where: {
-        email: invitation.email
-      }
-    }); // Check account exists
+  const user = await prisma.user.findUnique({
+    where: {
+      email: invitation.email
+    }
+  }); // Check account exists
 
   return {
     id: invitation.id,
@@ -164,33 +133,22 @@ export const getInvitationService = async (
     },
     hasAccount: user ? true : false,
     nextAction: user ? "login" : "register",
-    nextPage: user
-      ? `/login?invitationToken=${token}`
-      : `/register?invitationToken=${token}`,
     invitationToken: token
   };
-
 };
 
-
 // Accept Invitation
-export const acceptInvitationService = async (
-  invitationToken: string,
-  userId: number
-) => {
+export const acceptInvitationService = async (invitationToken: string, userId: number) => {
+  const decoded = verifyInvitationToken(invitationToken) as {
+    invitationId: number,
+    email: string
+  }; // Verify invitation token
 
-  const decoded =
-    verifyInvitationToken(invitationToken) as {
-      invitationId: number,
-      email: string
-    }; // Verify invitation token
-
-  const invitation =
-    await prisma.invitation.findUnique({
-      where: {
-        id: decoded.invitationId
-      }
-    }); // Find invitation
+  const invitation = await prisma.invitation.findUnique({
+    where: {
+      id: decoded.invitationId
+    }
+  }); // Find invitation
 
   if (!invitation) {
     throw new Error("Invitation not found.");
@@ -204,12 +162,11 @@ export const acceptInvitationService = async (
     throw new Error("Invitation already used.");
   }
 
-  const user =
-    await prisma.user.findUnique({
-      where: {
-        id: userId
-      }
-    }); // Find logged in user
+  const user = await prisma.user.findUnique({
+    where: {
+      id: userId
+    }
+  }); // Find logged in user
 
   if (!user) {
     throw new Error("User not found.");
@@ -219,26 +176,24 @@ export const acceptInvitationService = async (
     throw new Error("This invitation does not belong to you.");
   }
 
-  const existingWorkspaceUser =
-    await prisma.workspaceUser.findFirst({
-      where: {
-        userId: user.id,
-        workspaceId: invitation.workspaceId
-      }
-    }); // Check already joined
+  const existingWorkspaceUser = await prisma.workspaceUser.findFirst({
+    where: {
+      userId: user.id,
+      workspaceId: invitation.workspaceId
+    }
+  }); // Check already joined
 
   if (existingWorkspaceUser) {
     throw new Error("User already joined this workspace.");
   }
 
-  const workspaceUser =
-    await prisma.workspaceUser.create({
-      data: {
-        userId: user.id,
-        workspaceId: invitation.workspaceId,
-        role: invitation.role
-      }
-    }); // Join workspace
+  const workspaceUser = await prisma.workspaceUser.create({
+    data: {
+      userId: user.id,
+      workspaceId: invitation.workspaceId,
+      role: invitation.role
+    }
+  }); // Join workspace
 
   await prisma.invitation.update({
     where: {
@@ -257,5 +212,4 @@ export const acceptInvitationService = async (
     },
     workspaceUser: workspaceUser
   };
-
 };

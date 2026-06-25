@@ -3,7 +3,6 @@ import cookieParser from "cookie-parser";
 import authRoutes from "./modules/auth/auth.route";
 import workspaceRoutes from "./modules/workspace/workspace.route";
 import invitationRoutes from "./modules/invitation/invitation.route";
-
 import { errorMiddleware } from "./middlewares/error.middleware";
 
 const app = express();
