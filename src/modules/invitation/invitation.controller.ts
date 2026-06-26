@@ -5,16 +5,14 @@ import { successResponse } from "../../utils/response";
 // Invite User
 export const inviteUser = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const workspaceId = req.user?.workspaceId;
+    const userId = req.user?.userId;
 
-    if (!workspaceId) {
-      throw new Error("You must create or join a workspace first.");
+    if (!userId) {
+      throw new Error("Unauthorized.");
     }
 
     const result = await inviteUserService(
-      req.user!.userId,
-      workspaceId,
-      req.user!.role!,
+      userId,
       req.body.email,
       req.body.role
     ); // Create invitation

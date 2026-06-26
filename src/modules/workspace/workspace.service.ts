@@ -3,6 +3,10 @@ import { Role } from "../../../generated/prisma/client";
 
 // Create Workspace
 export const createWorkspaceService = async (userId: number, name: string) => {
+  if (!name) {
+    throw new Error("Workspace name is required.");
+  }
+
   const existingWorkspace = await prisma.workspaceUser.findFirst({
     where: {
       userId: userId,
@@ -44,10 +48,20 @@ export const createWorkspaceService = async (userId: number, name: string) => {
 };
 
 // Get Workspace
-export const getWorkspaceService = async (workspaceId: number) => {
+export const getWorkspaceService = async (userId: number) => {
+  const workspaceUser = await prisma.workspaceUser.findFirst({
+    where: {
+      userId: userId
+    }
+  }); // Find current workspace
+
+  if (!workspaceUser) {
+    throw new Error("You must create or join a workspace first.");
+  }
+
   const workspace = await prisma.workspace.findUnique({
     where: {
-      id: workspaceId
+      id: workspaceUser.workspaceId
     },
     include: {
       users: {
@@ -71,10 +85,25 @@ export const getWorkspaceService = async (workspaceId: number) => {
 };
 
 // Update Workspace
-export const updateWorkspaceService = async (workspaceId: number, name: string) => {
+export const updateWorkspaceService = async (userId: number, name: string) => {
+  if (!name) {
+    throw new Error("Workspace name is required.");
+  }
+
+  const workspaceUser = await prisma.workspaceUser.findFirst({
+    where: {
+      userId: userId,
+      role: Role.owner
+    }
+  }); // Find owner workspace
+
+  if (!workspaceUser) {
+    throw new Error("Only workspace owner can update workspace.");
+  }
+
   const workspace = await prisma.workspace.update({
     where: {
-      id: workspaceId
+      id: workspaceUser.workspaceId
     },
     data: {
       name: name
@@ -85,12 +114,33 @@ export const updateWorkspaceService = async (workspaceId: number, name: string) 
 };
 
 // Delete Workspace
-export const deleteWorkspaceService = async (workspaceId: number) => {
-  const workspace = await prisma.workspace.delete({
+export const deleteWorkspaceService = async (userId: number) => {
+  const workspaceUser = await prisma.workspaceUser.findFirst({
     where: {
-      id: workspaceId
+      userId: userId,
+      role: Role.owner
+    }
+  }); // Find owner workspace
+
+  if (!workspaceUser) {
+    throw new Error("Only workspace owner can delete workspace.");
+  }
+
+  const workspace = await prisma.workspace.findUnique({
+    where: {
+      id: workspaceUser.workspaceId
+    }
+  }); // Check workspace exists
+
+  if (!workspace) {
+    throw new Error("Workspace not found.");
+  }
+
+  const deletedWorkspace = await prisma.workspace.delete({
+    where: {
+      id: workspaceUser.workspaceId
     }
   }); // Delete workspace
 
-  return workspace;
+  return deletedWorkspace;
 };

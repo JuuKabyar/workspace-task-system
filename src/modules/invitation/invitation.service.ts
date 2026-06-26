@@ -4,25 +4,33 @@ import { sendMail } from "../../utils/mail";
 import { generateInvitationToken, verifyInvitationToken } from "../../utils/jwt";
 
 // Invite User
-export const inviteUserService = async (
-  invitedById: number,
-  workspaceId: number,
-  inviterRole: string,
-  email: string,
-  role: Role
-) => {
-  if (inviterRole === "owner" && role === "owner") {
+export const inviteUserService = async (invitedById: number, email: string, role: Role) => {
+  const inviterWorkspaceUser = await prisma.workspaceUser.findFirst({
+    where: {
+      userId: invitedById
+    }
+  }); // Find inviter workspace
+
+  if (!inviterWorkspaceUser) {
+    throw new Error("You must create or join a workspace first.");
+  }
+
+  if (inviterWorkspaceUser.role === "member") {
+    throw new Error("Member cannot invite users.");
+  }
+
+  if (inviterWorkspaceUser.role === "owner" && role === "owner") {
     throw new Error("Owner can only invite admin or member.");
   }
 
-  if (inviterRole === "admin" && role !== "member") {
+  if (inviterWorkspaceUser.role === "admin" && role !== "member") {
     throw new Error("Admin can only invite member.");
   }
 
   const existingInvitation = await prisma.invitation.findFirst({
     where: {
       email: email,
-      workspaceId: workspaceId,
+      workspaceId: inviterWorkspaceUser.workspaceId,
       status: "pending"
     }
   }); // Check duplicate invitation
@@ -33,7 +41,7 @@ export const inviteUserService = async (
 
   const existingWorkspaceUser = await prisma.workspaceUser.findFirst({
     where: {
-      workspaceId: workspaceId,
+      workspaceId: inviterWorkspaceUser.workspaceId,
       user: {
         email: email
       }
@@ -49,7 +57,7 @@ export const inviteUserService = async (
       email: email,
       role: role,
       token: "",
-      workspaceId: workspaceId,
+      workspaceId: inviterWorkspaceUser.workspaceId,
       invitedById: invitedById
     }
   }); // Create invitation
@@ -93,6 +101,10 @@ export const inviteUserService = async (
 
 // Get Invitation
 export const getInvitationService = async (token: string) => {
+  if (!token) {
+    throw new Error("Invitation token is required.");
+  }
+
   const decoded = verifyInvitationToken(token) as {
     invitationId: number,
     email: string
@@ -139,6 +151,10 @@ export const getInvitationService = async (token: string) => {
 
 // Accept Invitation
 export const acceptInvitationService = async (invitationToken: string, userId: number) => {
+  if (!invitationToken) {
+    throw new Error("Invitation token is required.");
+  }
+
   const decoded = verifyInvitationToken(invitationToken) as {
     invitationId: number,
     email: string

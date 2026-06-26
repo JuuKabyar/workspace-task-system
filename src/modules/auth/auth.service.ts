@@ -52,17 +52,9 @@ export const loginService = async (email: string, password: string) => {
     throw new Error("Invalid email or password.");
   }
 
-  const workspaceUser = await prisma.workspaceUser.findFirst({
-    where: {
-      userId: user.id
-    }
-  }); // Find first workspace
-
   const payload = {
-    userId: user.id,
-    workspaceId: workspaceUser?.workspaceId,
-    role: workspaceUser?.role
-  }; // Create JWT payload
+    userId: user.id
+  }; // JWT payload only userId
 
   const accessToken = generateAccessToken(payload);
   const refreshToken = generateRefreshToken(payload);
@@ -83,17 +75,14 @@ export const loginService = async (email: string, password: string) => {
   return {
     accessToken,
     refreshToken,
-    user: updatedUser,
-    workspace: workspaceUser ?? null
+    user: updatedUser
   };
 };
 
 // Refresh Token
 export const refreshTokenService = async (refreshToken: string) => {
   const decoded = verifyRefreshToken(refreshToken) as {
-    userId: number,
-    workspaceId: number | null,
-    role: string | null
+    userId: number
   }; // Verify refresh token
 
   const user = await prisma.user.findUnique({
@@ -111,9 +100,7 @@ export const refreshTokenService = async (refreshToken: string) => {
   }
 
   const payload = {
-    userId: decoded.userId,
-    workspaceId: decoded.workspaceId,
-    role: decoded.role
+    userId: decoded.userId
   };
 
   const accessToken = generateAccessToken(payload); // Generate new access token

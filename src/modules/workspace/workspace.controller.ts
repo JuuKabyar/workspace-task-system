@@ -26,13 +26,13 @@ export const createWorkspace = async (req: Request, res: Response, next: NextFun
 // Get Workspace
 export const getWorkspace = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const workspaceId = req.user?.workspaceId;
+    const userId = req.user?.userId;
 
-    if (!workspaceId) {
-      throw new Error("Workspace not found.");
+    if (!userId) {
+      throw new Error("Unauthorized.");
     }
 
-    const result = await getWorkspaceService(workspaceId); // Find workspace
+    const result = await getWorkspaceService(userId); // Find workspace by user
 
     return successResponse(res, 200, "Workspace fetched successfully.", result);
 
@@ -44,14 +44,14 @@ export const getWorkspace = async (req: Request, res: Response, next: NextFuncti
 // Update Workspace
 export const updateWorkspace = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const workspaceId = req.user?.workspaceId;
+    const userId = req.user?.userId;
 
-    if (!workspaceId) {
-      throw new Error("Workspace not found.");
+    if (!userId) {
+      throw new Error("Unauthorized.");
     }
 
     const result = await updateWorkspaceService(
-      workspaceId,
+      userId,
       req.body.name
     ); // Update workspace
 
@@ -65,13 +65,13 @@ export const updateWorkspace = async (req: Request, res: Response, next: NextFun
 // Delete Workspace
 export const deleteWorkspace = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const workspaceId = req.user?.workspaceId;
+    const userId = req.user?.userId;
 
-    if (!workspaceId) {
-      throw new Error("Workspace not found.");
+    if (!userId) {
+      throw new Error("Unauthorized.");
     }
 
-    const result = await deleteWorkspaceService(workspaceId); // Delete workspace
+    const result = await deleteWorkspaceService(userId); // Delete workspace
 
     return successResponse(res, 200, "Workspace deleted successfully.", result);
 
