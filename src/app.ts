@@ -5,6 +5,7 @@ import workspaceRoutes from "./modules/workspace/workspace.route";
 import invitationRoutes from "./modules/invitation/invitation.route";
 import { errorMiddleware } from "./middlewares/error.middleware";
 import memberRoutes from "./modules/members/member.route";
+import projectRoutes from "./modules/projects/project.route"
 
 const app = express();
 
@@ -17,6 +18,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/workspace", workspaceRoutes);
 app.use("/api/invitations", invitationRoutes);
 app.use("/api/members", memberRoutes);
+app.use("/api/projects", projectRoutes);
 
 app.use(errorMiddleware);
 
