@@ -15,7 +15,7 @@ app.use(cookieParser());
 app.use("/uploads", express.static("uploads"));
 
 app.use("/api/auth", authRoutes);
-app.use("/api/workspace", workspaceRoutes);
+app.use("/api/workspaces", workspaceRoutes);
 app.use("/api/invitations", invitationRoutes);
 app.use("/api/members", memberRoutes);
 app.use("/api/projects", projectRoutes);

@@ -5,19 +5,25 @@ export const roleMiddleware = (allowedRoles: string[]) => {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userId = req.user?.userId;
+      const workspaceId = Number(req.params.workspaceId);
 
       if (!userId) {
         throw new Error("Unauthorized.");
       }
 
+      if (!workspaceId) {
+        throw new Error("Workspace id is required.");
+      }
+
       const workspaceUser = await prisma.workspaceUser.findFirst({
         where: {
-          userId: userId
+          userId: userId,
+          workspaceId: workspaceId
         }
-      }); // Find user's workspace role
+      }); // Check user role in workspace
 
       if (!workspaceUser) {
-        throw new Error("You must create or join a workspace first.");
+        throw new Error("You do not have access to this workspace.");
       }
 
       if (!allowedRoles.includes(workspaceUser.role)) {

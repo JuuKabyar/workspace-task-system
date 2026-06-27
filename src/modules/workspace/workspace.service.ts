@@ -7,20 +7,10 @@ export const createWorkspaceService = async (userId: number, name: string) => {
     throw new Error("Workspace name is required.");
   }
 
-  const existingWorkspace = await prisma.workspaceUser.findFirst({
-    where: {
-      userId: userId,
-      role: Role.owner
-    }
-  }); // Check owner workspace
-
-  if (existingWorkspace) {
-    throw new Error("You already own a workspace.");
-  }
-
   const workspace = await prisma.workspace.create({
     data: {
-      name: name
+      name: name,
+      ownerId: userId
     }
   }); // Create workspace
 
@@ -32,36 +22,42 @@ export const createWorkspaceService = async (userId: number, name: string) => {
     }
   }); // Create owner
 
-  const updatedWorkspace = await prisma.workspace.update({
-    where: {
-      id: workspace.id
-    },
-    data: {
-      ownerId: userId
-    }
-  }); // Save owner id
-
   return {
-    workspace: updatedWorkspace,
+    workspace,
     workspaceUser
   };
 };
 
-// Get Workspace
-export const getWorkspaceService = async (userId: number) => {
-  const workspaceUser = await prisma.workspaceUser.findFirst({
+// Get My Workspaces
+export const getMyWorkspacesService = async (userId: number) => {
+  const workspaces = await prisma.workspaceUser.findMany({
     where: {
       userId: userId
+    },
+    include: {
+      workspace: true
     }
-  }); // Find current workspace
+  }); // Get joined workspaces
+
+  return workspaces;
+};
+
+// Get Workspace By Id
+export const getWorkspaceService = async (userId: number, workspaceId: number) => {
+  const workspaceUser = await prisma.workspaceUser.findFirst({
+    where: {
+      userId: userId,
+      workspaceId: workspaceId
+    }
+  }); // Check workspace access
 
   if (!workspaceUser) {
-    throw new Error("You must create or join a workspace first.");
+    throw new Error("You do not have access to this workspace.");
   }
 
   const workspace = await prisma.workspace.findUnique({
     where: {
-      id: workspaceUser.workspaceId
+      id: workspaceId
     },
     include: {
       users: {
@@ -73,9 +69,10 @@ export const getWorkspaceService = async (userId: number) => {
             }
           }
         }
-      }
+      },
+      projects: true
     }
-  }); // Find workspace
+  }); // Get workspace
 
   if (!workspace) {
     throw new Error("Workspace not found.");
@@ -85,7 +82,7 @@ export const getWorkspaceService = async (userId: number) => {
 };
 
 // Update Workspace
-export const updateWorkspaceService = async (userId: number, name: string) => {
+export const updateWorkspaceService = async (userId: number, workspaceId: number, name: string) => {
   if (!name) {
     throw new Error("Workspace name is required.");
   }
@@ -93,9 +90,10 @@ export const updateWorkspaceService = async (userId: number, name: string) => {
   const workspaceUser = await prisma.workspaceUser.findFirst({
     where: {
       userId: userId,
+      workspaceId: workspaceId,
       role: Role.owner
     }
-  }); // Find owner workspace
+  }); // Check owner role
 
   if (!workspaceUser) {
     throw new Error("Only workspace owner can update workspace.");
@@ -103,7 +101,7 @@ export const updateWorkspaceService = async (userId: number, name: string) => {
 
   const workspace = await prisma.workspace.update({
     where: {
-      id: workspaceUser.workspaceId
+      id: workspaceId
     },
     data: {
       name: name
@@ -114,33 +112,24 @@ export const updateWorkspaceService = async (userId: number, name: string) => {
 };
 
 // Delete Workspace
-export const deleteWorkspaceService = async (userId: number) => {
+export const deleteWorkspaceService = async (userId: number, workspaceId: number) => {
   const workspaceUser = await prisma.workspaceUser.findFirst({
     where: {
       userId: userId,
+      workspaceId: workspaceId,
       role: Role.owner
     }
-  }); // Find owner workspace
+  }); // Check owner role
 
   if (!workspaceUser) {
     throw new Error("Only workspace owner can delete workspace.");
   }
 
-  const workspace = await prisma.workspace.findUnique({
+  const workspace = await prisma.workspace.delete({
     where: {
-      id: workspaceUser.workspaceId
-    }
-  }); // Check workspace exists
-
-  if (!workspace) {
-    throw new Error("Workspace not found.");
-  }
-
-  const deletedWorkspace = await prisma.workspace.delete({
-    where: {
-      id: workspaceUser.workspaceId
+      id: workspaceId
     }
   }); // Delete workspace
 
-  return deletedWorkspace;
+  return workspace;
 };

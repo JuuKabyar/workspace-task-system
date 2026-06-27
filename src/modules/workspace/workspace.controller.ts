@@ -1,18 +1,12 @@
 import { Request, Response, NextFunction } from "express";
-import { createWorkspaceService, getWorkspaceService, updateWorkspaceService, deleteWorkspaceService } from "./workspace.service";
+import { createWorkspaceService, getMyWorkspacesService, getWorkspaceService, updateWorkspaceService, deleteWorkspaceService } from "./workspace.service";
 import { successResponse } from "../../utils/response";
 
 // Create Workspace
 export const createWorkspace = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userId = req.user?.userId;
-
-    if (!userId) {
-      throw new Error("Unauthorized.");
-    }
-
     const result = await createWorkspaceService(
-      userId,
+      req.user!.userId,
       req.body.name
     ); // Create workspace
 
@@ -23,16 +17,31 @@ export const createWorkspace = async (req: Request, res: Response, next: NextFun
   }
 };
 
-// Get Workspace
+// Get My Workspaces
+export const getMyWorkspaces = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const result = await getMyWorkspacesService(req.user!.userId); // Get workspaces
+
+    return successResponse(res, 200, "Workspaces fetched successfully.", result);
+
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Get Workspace By Id
 export const getWorkspace = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userId = req.user?.userId;
+    const workspaceId = Number(req.params.workspaceId);
 
-    if (!userId) {
-      throw new Error("Unauthorized.");
+    if (!workspaceId) {
+      throw new Error("Workspace id is required.");
     }
 
-    const result = await getWorkspaceService(userId); // Find workspace by user
+    const result = await getWorkspaceService(
+      req.user!.userId,
+      workspaceId
+    ); // Get workspace
 
     return successResponse(res, 200, "Workspace fetched successfully.", result);
 
@@ -44,14 +53,15 @@ export const getWorkspace = async (req: Request, res: Response, next: NextFuncti
 // Update Workspace
 export const updateWorkspace = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userId = req.user?.userId;
+    const workspaceId = Number(req.params.workspaceId);
 
-    if (!userId) {
-      throw new Error("Unauthorized.");
+    if (!workspaceId) {
+      throw new Error("Workspace id is required.");
     }
 
     const result = await updateWorkspaceService(
-      userId,
+      req.user!.userId,
+      workspaceId,
       req.body.name
     ); // Update workspace
 
@@ -65,13 +75,16 @@ export const updateWorkspace = async (req: Request, res: Response, next: NextFun
 // Delete Workspace
 export const deleteWorkspace = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userId = req.user?.userId;
+    const workspaceId = Number(req.params.workspaceId);
 
-    if (!userId) {
-      throw new Error("Unauthorized.");
+    if (!workspaceId) {
+      throw new Error("Workspace id is required.");
     }
 
-    const result = await deleteWorkspaceService(userId); // Delete workspace
+    const result = await deleteWorkspaceService(
+      req.user!.userId,
+      workspaceId
+    ); // Delete workspace
 
     return successResponse(res, 200, "Workspace deleted successfully.", result);
 
