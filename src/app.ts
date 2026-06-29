@@ -6,6 +6,7 @@ import invitationRoutes from "./modules/invitation/invitation.route";
 import memberRoutes from "./modules/members/member.route";
 import projectRoutes from "./modules/projects/project.route";
 import taskRoutes from "./modules/tasks/task.route";
+import dashboardRoutes from "./modules/dashboard/dashboard.route";
 
 import { errorMiddleware } from "./middlewares/error.middleware";
 
@@ -22,6 +23,7 @@ app.use("/api/invitations", invitationRoutes);
 app.use("/api/members", memberRoutes);
 app.use("/api/projects", projectRoutes);
 app.use("/api/tasks", taskRoutes);
+app.use("/api/dashboard", dashboardRoutes);
 
 app.use(errorMiddleware);
 
