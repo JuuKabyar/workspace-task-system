@@ -4,33 +4,34 @@ import { sendMail } from "../../utils/mail";
 import { generateInvitationToken, verifyInvitationToken } from "../../utils/jwt";
 
 // Invite User
-export const inviteUserService = async (invitedById: number, email: string, role: Role) => {
-  const inviterWorkspaceUser = await prisma.workspaceUser.findFirst({
+export const inviteUserService = async (invitedById: number, workspaceId: number, email: string, role: Role) => {
+  const inviter = await prisma.workspaceUser.findFirst({
     where: {
-      userId: invitedById
+      userId: invitedById,
+      workspaceId: workspaceId
     }
-  }); // Find inviter workspace
+  }); // Find inviter
 
-  if (!inviterWorkspaceUser) {
-    throw new Error("You must create or join a workspace first.");
+  if (!inviter) {
+    throw new Error("You do not have access to this workspace.");
   }
 
-  if (inviterWorkspaceUser.role === "member") {
+  if (inviter.role === Role.member) {
     throw new Error("Member cannot invite users.");
   }
 
-  if (inviterWorkspaceUser.role === "owner" && role === "owner") {
+  if (inviter.role === Role.owner && role === Role.owner) {
     throw new Error("Owner can only invite admin or member.");
   }
 
-  if (inviterWorkspaceUser.role === "admin" && role !== "member") {
+  if (inviter.role === Role.admin && role !== Role.member) {
     throw new Error("Admin can only invite member.");
   }
 
   const existingInvitation = await prisma.invitation.findFirst({
     where: {
       email: email,
-      workspaceId: inviterWorkspaceUser.workspaceId,
+      workspaceId: workspaceId,
       status: "pending"
     }
   }); // Check duplicate invitation
@@ -41,7 +42,7 @@ export const inviteUserService = async (invitedById: number, email: string, role
 
   const existingWorkspaceUser = await prisma.workspaceUser.findFirst({
     where: {
-      workspaceId: inviterWorkspaceUser.workspaceId,
+      workspaceId: workspaceId,
       user: {
         email: email
       }
@@ -57,7 +58,7 @@ export const inviteUserService = async (invitedById: number, email: string, role
       email: email,
       role: role,
       token: "",
-      workspaceId: inviterWorkspaceUser.workspaceId,
+      workspaceId: workspaceId,
       invitedById: invitedById
     }
   }); // Create invitation
@@ -76,8 +77,8 @@ export const inviteUserService = async (invitedById: number, email: string, role
     }
   }); // Save token
 
-  // const invitationLink = `${process.env.FRONTEND_URL}/accept-invitation?invitationToken=${token}`;
-  const invitationLink = `http://localhost:3000/api/invitations?invitationToken=${token}`;
+  // const invitationLink = `${process.env.FRONTEND_URL}/workspaces/${workspaceId}/invitations?invitationToken=${token}`;
+  const invitationLink = `http://localhost:3000/api/invitations/${workspaceId}?invitationToken=${token}`;
 
   const html = `
     <h2>Workspace Invitation</h2>
@@ -100,19 +101,16 @@ export const inviteUserService = async (invitedById: number, email: string, role
 };
 
 // Get Invitation
-export const getInvitationService = async (token: string) => {
-  if (!token) {
-    throw new Error("Invitation token is required.");
-  }
-
+export const getInvitationService = async (workspaceId: number, token: string) => {
   const decoded = verifyInvitationToken(token) as {
     invitationId: number,
     email: string
   }; // Verify invitation token
 
-  const invitation = await prisma.invitation.findUnique({
+  const invitation = await prisma.invitation.findFirst({
     where: {
-      id: decoded.invitationId
+      id: decoded.invitationId,
+      workspaceId: workspaceId
     },
     include: {
       workspace: true
@@ -150,19 +148,16 @@ export const getInvitationService = async (token: string) => {
 };
 
 // Accept Invitation
-export const acceptInvitationService = async (invitationToken: string, userId: number) => {
-  if (!invitationToken) {
-    throw new Error("Invitation token is required.");
-  }
-
+export const acceptInvitationService = async (workspaceId: number, invitationToken: string, userId: number) => {
   const decoded = verifyInvitationToken(invitationToken) as {
     invitationId: number,
     email: string
   }; // Verify invitation token
 
-  const invitation = await prisma.invitation.findUnique({
+  const invitation = await prisma.invitation.findFirst({
     where: {
-      id: decoded.invitationId
+      id: decoded.invitationId,
+      workspaceId: workspaceId
     }
   }); // Find invitation
 
@@ -195,7 +190,7 @@ export const acceptInvitationService = async (invitationToken: string, userId: n
   const existingWorkspaceUser = await prisma.workspaceUser.findFirst({
     where: {
       userId: user.id,
-      workspaceId: invitation.workspaceId
+      workspaceId: workspaceId
     }
   }); // Check already joined
 
@@ -206,7 +201,7 @@ export const acceptInvitationService = async (invitationToken: string, userId: n
   const workspaceUser = await prisma.workspaceUser.create({
     data: {
       userId: user.id,
-      workspaceId: invitation.workspaceId,
+      workspaceId: workspaceId,
       role: invitation.role
     }
   }); // Join workspace

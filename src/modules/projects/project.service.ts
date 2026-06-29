@@ -1,26 +1,22 @@
 import { prisma } from "../../lib/prisma";
 import { Role, ProjectStatus } from "../../../generated/prisma/client";
 
+
 // Create Project
-export const createProjectService = async (
-  userId: number,
-  name: string,
-  description?: string,
-  startDate?: string,
-  endDate?: string
-) => {
+export const createProjectService = async (userId: number, workspaceId: number, name: string, description?: string, startDate?: string, endDate?: string) => {
   if (!name) {
     throw new Error("Project name is required.");
   }
 
   const workspaceUser = await prisma.workspaceUser.findFirst({
     where: {
-      userId: userId
+      userId: userId,
+      workspaceId: workspaceId
     }
   }); // Find current workspace user
 
   if (!workspaceUser) {
-    throw new Error("You must create or join a workspace first.");
+    throw new Error("You do not have access to this workspace.");
   }
 
   if (workspaceUser.role === Role.member) {
@@ -33,7 +29,7 @@ export const createProjectService = async (
       description: description,
       startDate: startDate ? new Date(startDate) : undefined,
       endDate: endDate ? new Date(endDate) : undefined,
-      workspaceId: workspaceUser.workspaceId,
+      workspaceId: workspaceId,
       createdById: userId
     }
   }); // Create project
@@ -48,21 +44,23 @@ export const createProjectService = async (
   return project;
 };
 
+
 // Get Projects
-export const getProjectsService = async (userId: number) => {
+export const getProjectsService = async (userId: number, workspaceId: number) => {
   const workspaceUser = await prisma.workspaceUser.findFirst({
     where: {
-      userId: userId
+      userId: userId,
+      workspaceId: workspaceId
     }
   }); // Find current workspace user
 
   if (!workspaceUser) {
-    throw new Error("You must create or join a workspace first.");
+    throw new Error("You do not have access to this workspace.");
   }
 
   const whereCondition = workspaceUser.role === Role.member
     ? {
-        workspaceId: workspaceUser.workspaceId,
+        workspaceId: workspaceId,
         members: {
           some: {
             workspaceUserId: workspaceUser.id
@@ -70,7 +68,7 @@ export const getProjectsService = async (userId: number) => {
         }
       }
     : {
-        workspaceId: workspaceUser.workspaceId
+        workspaceId: workspaceId
       };
 
   const projects = await prisma.project.findMany({
@@ -96,22 +94,24 @@ export const getProjectsService = async (userId: number) => {
   return projects;
 };
 
+
 // Get Project By Id
-export const getProjectByIdService = async (userId: number, projectId: number) => {
+export const getProjectByIdService = async (userId: number, workspaceId: number, projectId: number) => {
   const workspaceUser = await prisma.workspaceUser.findFirst({
     where: {
-      userId: userId
+      userId: userId,
+      workspaceId: workspaceId
     }
   }); // Find current workspace user
 
   if (!workspaceUser) {
-    throw new Error("You must create or join a workspace first.");
+    throw new Error("You do not have access to this workspace.");
   }
 
   const project = await prisma.project.findFirst({
     where: {
       id: projectId,
-      workspaceId: workspaceUser.workspaceId
+      workspaceId: workspaceId
     },
     include: {
       members: {
@@ -119,10 +119,7 @@ export const getProjectByIdService = async (userId: number, projectId: number) =
           workspaceUser: {
             include: {
               user: {
-                omit: {
-                  password: true,
-                  refreshToken: true
-                }
+                omit: { password: true, refreshToken: true}
               }
             }
           }
@@ -146,24 +143,18 @@ export const getProjectByIdService = async (userId: number, projectId: number) =
   return project;
 };
 
+
 // Update Project
-export const updateProjectService = async (
-  userId: number,
-  projectId: number,
-  name?: string,
-  description?: string,
-  status?: ProjectStatus,
-  startDate?: string,
-  endDate?: string
-) => {
+export const updateProjectService = async (userId: number, workspaceId: number, projectId: number, name?: string, description?: string, status?: ProjectStatus, startDate?: string, endDate?: string) => {
   const workspaceUser = await prisma.workspaceUser.findFirst({
     where: {
-      userId: userId
+      userId: userId,
+      workspaceId: workspaceId
     }
   }); // Find current workspace user
 
   if (!workspaceUser) {
-    throw new Error("You must create or join a workspace first.");
+    throw new Error("You do not have access to this workspace.");
   }
 
   if (workspaceUser.role === Role.member) {
@@ -173,7 +164,7 @@ export const updateProjectService = async (
   const project = await prisma.project.findFirst({
     where: {
       id: projectId,
-      workspaceId: workspaceUser.workspaceId
+      workspaceId: workspaceId
     }
   }); // Find project
 
@@ -197,11 +188,13 @@ export const updateProjectService = async (
   return updatedProject;
 };
 
+
 // Delete Project
-export const deleteProjectService = async (userId: number, projectId: number) => {
+export const deleteProjectService = async (userId: number, workspaceId: number, projectId: number) => {
   const workspaceUser = await prisma.workspaceUser.findFirst({
     where: {
       userId: userId,
+      workspaceId: workspaceId,
       role: Role.owner
     }
   }); // Find owner
@@ -213,7 +206,7 @@ export const deleteProjectService = async (userId: number, projectId: number) =>
   const project = await prisma.project.findFirst({
     where: {
       id: projectId,
-      workspaceId: workspaceUser.workspaceId
+      workspaceId: workspaceId
     }
   }); // Find project
 
@@ -230,135 +223,118 @@ export const deleteProjectService = async (userId: number, projectId: number) =>
   return deletedProject;
 };
 
-// Assign Member To Project
-export const assignMemberToProjectService = async (
-  userId: number,
-  projectId: number,
-  workspaceUserId: number
-) => {
 
-  const currentUser =
-    await prisma.workspaceUser.findFirst({
-      where: {
-        userId: userId
-      }
-    }); // Find current user
+// Assign Member To Project
+export const assignMemberToProjectService = async (userId: number, workspaceId: number, projectId: number, workspaceUserId: number) => {
+  const currentUser = await prisma.workspaceUser.findFirst({
+    where: {
+      userId: userId,
+      workspaceId: workspaceId
+    }
+  }); // Find current user
 
   if (!currentUser) {
-    throw new Error("You must create or join a workspace first.");
+    throw new Error("You do not have access to this workspace.");
   }
 
   if (currentUser.role === Role.member) {
     throw new Error("Member cannot assign project members.");
   }
 
-  const project =
-    await prisma.project.findFirst({
-      where: {
-        id: projectId,
-        workspaceId: currentUser.workspaceId
-      }
-    }); // Find project
+  const project = await prisma.project.findFirst({
+    where: {
+      id: projectId,
+      workspaceId: workspaceId
+    }
+  }); // Find project
 
   if (!project) {
     throw new Error("Project not found.");
   }
 
-  const targetMember =
-    await prisma.workspaceUser.findFirst({
-      where: {
-        id: workspaceUserId,
-        workspaceId: currentUser.workspaceId
-      }
-    }); // Find workspace member
+  const targetMember = await prisma.workspaceUser.findFirst({
+    where: {
+      id: workspaceUserId,
+      workspaceId: workspaceId
+    }
+  }); // Find workspace member
 
   if (!targetMember) {
     throw new Error("Member not found in this workspace.");
   }
 
-  const existingProjectMember =
-    await prisma.projectMember.findFirst({
-      where: {
-        projectId: projectId,
-        workspaceUserId: workspaceUserId
-      }
-    }); // Check already assigned
+  const existingProjectMember = await prisma.projectMember.findFirst({
+    where: {
+      projectId: projectId,
+      workspaceUserId: workspaceUserId
+    }
+  }); // Check already assigned
 
   if (existingProjectMember) {
     throw new Error("Member is already assigned to this project.");
   }
 
-  const projectMember =
-    await prisma.projectMember.create({
-      data: {
-        projectId: projectId,
-        workspaceUserId: workspaceUserId
-      }
-    }); // Assign member
+  const projectMember = await prisma.projectMember.create({
+    data: {
+      projectId: projectId,
+      workspaceUserId: workspaceUserId
+    }
+  }); // Assign member
 
   return projectMember;
-
 };
 
-// Remove Member From Project
-export const removeMemberFromProjectService = async (
-  userId: number,
-  projectId: number,
-  workspaceUserId: number
-) => {
 
-  const currentUser =
-    await prisma.workspaceUser.findFirst({
-      where: {
-        userId: userId
-      }
-    }); // Find current user
+// Remove Member From Project
+export const removeMemberFromProjectService = async (userId: number, workspaceId: number, projectId: number, workspaceUserId: number) => {
+  const currentUser = await prisma.workspaceUser.findFirst({
+    where: {
+      userId: userId,
+      workspaceId: workspaceId
+    }
+  }); // Find current user
 
   if (!currentUser) {
-    throw new Error("You must create or join a workspace first.");
+    throw new Error("You do not have access to this workspace.");
   }
 
   if (currentUser.role === Role.member) {
     throw new Error("Member cannot remove project members.");
   }
 
-  const project =
-    await prisma.project.findFirst({
-      where: {
-        id: projectId,
-        workspaceId: currentUser.workspaceId
-      }
-    }); // Find project
+  const project = await prisma.project.findFirst({
+    where: {
+      id: projectId,
+      workspaceId: workspaceId
+    }
+  }); // Find project
 
   if (!project) {
     throw new Error("Project not found.");
   }
 
-  const targetMember =
-    await prisma.workspaceUser.findFirst({
-      where: {
-        id: workspaceUserId,
-        workspaceId: currentUser.workspaceId
-      }
-    }); // Find workspace member
+  const targetMember = await prisma.workspaceUser.findFirst({
+    where: {
+      id: workspaceUserId,
+      workspaceId: workspaceId
+    }
+  }); // Find workspace member
 
   if (!targetMember) {
     throw new Error("Member not found in this workspace.");
   }
 
-  const projectMember =
-    await prisma.projectMember.findFirst({
-      where: {
-        projectId: projectId,
-        workspaceUserId: workspaceUserId
-      }
-    }); // Find assigned member
+  const projectMember = await prisma.projectMember.findFirst({
+    where: {
+      projectId: projectId,
+      workspaceUserId: workspaceUserId
+    }
+  }); // Find project member
 
   if (!projectMember) {
     throw new Error("Member is not assigned to this project.");
   }
 
-  // Don't remove project creator
   if (project.createdById === targetMember.userId) {
     throw new Error("Project creator cannot be removed.");
   }
@@ -372,5 +348,4 @@ export const removeMemberFromProjectService = async (
   return {
     message: "Member removed successfully."
   };
-
 };

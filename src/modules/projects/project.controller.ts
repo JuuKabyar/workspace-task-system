@@ -1,18 +1,23 @@
 import { Request, Response, NextFunction } from "express";
-import { createProjectService, 
-    getProjectsService, 
-    getProjectByIdService, 
-    updateProjectService, 
-    deleteProjectService, 
-    assignMemberToProjectService, 
-    removeMemberFromProjectService } from "./project.service";
+
+import { createProjectService, getProjectsService, getProjectByIdService, updateProjectService, deleteProjectService, assignMemberToProjectService, removeMemberFromProjectService } from "./project.service";
+
 import { successResponse } from "../../utils/response";
+
 
 // Create Project
 export const createProject = async (req: Request, res: Response, next: NextFunction) => {
   try {
+
+    const workspaceId = Number(req.params.workspaceId);
+
+    if (!workspaceId) {
+      throw new Error("Workspace id is required.");
+    }
+
     const result = await createProjectService(
       req.user!.userId,
+      workspaceId,
       req.body.name,
       req.body.description,
       req.body.startDate,
@@ -26,10 +31,18 @@ export const createProject = async (req: Request, res: Response, next: NextFunct
   }
 };
 
+
 // Get Projects
 export const getProjects = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const result = await getProjectsService(req.user!.userId); // Get projects
+
+    const workspaceId = Number(req.params.workspaceId);
+
+    if (!workspaceId) {
+      throw new Error("Workspace id is required.");
+    }
+
+    const result = await getProjectsService(req.user!.userId, workspaceId); // Get projects
 
     return successResponse(res, 200, "Projects fetched successfully.", result);
 
@@ -38,15 +51,23 @@ export const getProjects = async (req: Request, res: Response, next: NextFunctio
   }
 };
 
+
 // Get Project By Id
 export const getProjectById = async (req: Request, res: Response, next: NextFunction) => {
   try {
+
+    const workspaceId = Number(req.params.workspaceId);
     const projectId = Number(req.params.projectId);
 
-    const result = await getProjectByIdService(
-      req.user!.userId,
-      projectId
-    ); // Get project
+    if (!workspaceId) {
+      throw new Error("Workspace id is required.");
+    }
+
+    if (!projectId) {
+      throw new Error("Project id is required.");
+    }
+
+    const result = await getProjectByIdService(req.user!.userId, workspaceId, projectId); // Get project
 
     return successResponse(res, 200, "Project fetched successfully.", result);
 
@@ -55,13 +76,25 @@ export const getProjectById = async (req: Request, res: Response, next: NextFunc
   }
 };
 
+
 // Update Project
 export const updateProject = async (req: Request, res: Response, next: NextFunction) => {
   try {
+
+    const workspaceId = Number(req.params.workspaceId);
     const projectId = Number(req.params.projectId);
+
+    if (!workspaceId) {
+      throw new Error("Workspace id is required.");
+    }
+
+    if (!projectId) {
+      throw new Error("Project id is required.");
+    }
 
     const result = await updateProjectService(
       req.user!.userId,
+      workspaceId,
       projectId,
       req.body.name,
       req.body.description,
@@ -77,15 +110,23 @@ export const updateProject = async (req: Request, res: Response, next: NextFunct
   }
 };
 
+
 // Delete Project
 export const deleteProject = async (req: Request, res: Response, next: NextFunction) => {
   try {
+
+    const workspaceId = Number(req.params.workspaceId);
     const projectId = Number(req.params.projectId);
 
-    const result = await deleteProjectService(
-      req.user!.userId,
-      projectId
-    ); // Delete project
+    if (!workspaceId) {
+      throw new Error("Workspace id is required.");
+    }
+
+    if (!projectId) {
+      throw new Error("Project id is required.");
+    }
+
+    const result = await deleteProjectService(req.user!.userId, workspaceId, projectId); // Delete project
 
     return successResponse(res, 200, "Project deleted successfully.", result);
 
@@ -94,60 +135,62 @@ export const deleteProject = async (req: Request, res: Response, next: NextFunct
   }
 };
 
-// Assign Member To Project
-export const assignMemberToProject = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
 
+// Assign Member To Project
+export const assignMemberToProject = async (req: Request, res: Response, next: NextFunction) => {
   try {
 
-    const result =
-      await assignMemberToProjectService(
-        req.user!.userId,
-        Number(req.params.projectId),
-        req.body.workspaceUserId
-      ); // Assign member
+    const workspaceId = Number(req.params.workspaceId);
+    const projectId = Number(req.params.projectId);
 
-    return successResponse(
-      res,
-      200,
-      "Member assigned successfully.",
-      result
-    );
+    if (!workspaceId) {
+      throw new Error("Workspace id is required.");
+    }
+
+    if (!projectId) {
+      throw new Error("Project id is required.");
+    }
+
+    const result = await assignMemberToProjectService(
+      req.user!.userId,
+      workspaceId,
+      projectId,
+      req.body.workspaceUserId
+    ); // Assign member
+
+    return successResponse(res, 200, "Member assigned to project successfully.", result);
 
   } catch (error) {
     next(error);
   }
-
 };
 
-// Remove Member From Project
-export const removeMemberFromProject = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
 
+// Remove Member From Project
+export const removeMemberFromProject = async (req: Request, res: Response, next: NextFunction) => {
   try {
 
-    const result =
-      await removeMemberFromProjectService(
-        req.user!.userId,
-        Number(req.params.projectId),
-        Number(req.params.workspaceUserId)
-      ); // Remove member
+    const workspaceId = Number(req.params.workspaceId);
+    const projectId = Number(req.params.projectId);
+    const workspaceUserId = Number(req.params.workspaceUserId);
 
-    return successResponse(
-      res,
-      200,
-      "Member removed successfully.",
-      result
-    );
+    if (!workspaceId) {
+      throw new Error("Workspace id is required.");
+    }
+
+    if (!projectId) {
+      throw new Error("Project id is required.");
+    }
+
+    if (!workspaceUserId) {
+      throw new Error("Workspace user id is required.");
+    }
+
+    const result = await removeMemberFromProjectService(req.user!.userId, workspaceId, projectId, workspaceUserId); // Remove member
+
+    return successResponse(res, 200, "Member removed from project successfully.", result);
 
   } catch (error) {
     next(error);
   }
-
 };

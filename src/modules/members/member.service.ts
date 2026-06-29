@@ -1,21 +1,24 @@
 import { prisma } from "../../lib/prisma";
 import { Role } from "../../../generated/prisma/client";
 
-// Get Workspace Members
-export const getWorkspaceMembersService = async (userId: number) => {
-  const currentUser = await prisma.workspaceUser.findFirst({
-    where: {
-      userId: userId
-    }
-  }); // Find current workspace
 
-  if (!currentUser) {
-    throw new Error("You must create or join a workspace first.");
+// Get Members
+export const getMembersService = async (userId: number, workspaceId: number) => {
+
+  const workspaceUser = await prisma.workspaceUser.findFirst({
+    where: {
+      userId: userId,
+      workspaceId: workspaceId
+    }
+  }); // Check access
+
+  if (!workspaceUser) {
+    throw new Error("You do not have access to this workspace.");
   }
 
   const members = await prisma.workspaceUser.findMany({
     where: {
-      workspaceId: currentUser.workspaceId
+      workspaceId: workspaceId
     },
     include: {
       user: {
@@ -28,41 +31,41 @@ export const getWorkspaceMembersService = async (userId: number) => {
   }); // Get members
 
   return members;
+
 };
 
-// Update Member Role
-export const updateMemberRoleService = async (userId: number, memberId: number, role: Role) => {
-  if (role === Role.owner) {
-    throw new Error("Owner role cannot be assigned.");
-  }
 
-  const currentUser = await prisma.workspaceUser.findFirst({
+// Update Member Role
+export const updateMemberRoleService = async (
+  userId: number,
+  workspaceId: number,
+  memberId: number,
+  role: Role
+) => {
+
+  const owner = await prisma.workspaceUser.findFirst({
     where: {
       userId: userId,
+      workspaceId: workspaceId,
       role: Role.owner
     }
-  }); // Find owner workspace
+  }); // Check owner
 
-  if (!currentUser) {
+  if (!owner) {
     throw new Error("Only owner can update member role.");
   }
 
-  const targetMember = await prisma.workspaceUser.findFirst({
+  const member = await prisma.workspaceUser.findUnique({
     where: {
-      id: memberId,
-      workspaceId: currentUser.workspaceId
+      id: memberId
     }
-  }); // Find target member
+  }); // Find member
 
-  if (!targetMember) {
+  if (!member || member.workspaceId !== workspaceId) {
     throw new Error("Member not found.");
   }
 
-  if (targetMember.userId === userId) {
-    throw new Error("You cannot update your own role.");
-  }
-
-  if (targetMember.role === Role.owner) {
+  if (member.role === Role.owner) {
     throw new Error("Owner role cannot be changed.");
   }
 
@@ -72,60 +75,67 @@ export const updateMemberRoleService = async (userId: number, memberId: number, 
     },
     data: {
       role: role
-    },
-    include: {
-      user: {
-        omit: {
-          password: true,
-          refreshToken: true
-        }
-      }
     }
   }); // Update role
 
   return updatedMember;
+
 };
 
+
 // Remove Member
-export const removeMemberService = async (userId: number, memberId: number) => {
+export const removeMemberService = async (
+  userId: number,
+  workspaceId: number,
+  memberId: number
+) => {
+
   const currentUser = await prisma.workspaceUser.findFirst({
     where: {
-      userId: userId
+      userId: userId,
+      workspaceId: workspaceId
     }
-  }); // Find current user workspace
+  }); // Find current user
 
   if (!currentUser) {
-    throw new Error("You must create or join a workspace first.");
+    throw new Error("You do not have access to this workspace.");
   }
 
-  if (currentUser.role === Role.member) {
-    throw new Error("Member cannot remove users.");
-  }
-
-  const targetMember = await prisma.workspaceUser.findFirst({
-    where: {
-      id: memberId,
-      workspaceId: currentUser.workspaceId
-    }
-  }); // Find target member
-
-  if (!targetMember) {
-    throw new Error("Member not found.");
-  }
-
-  if (targetMember.role === Role.owner) {
-    throw new Error("Owner cannot be removed.");
-  }
-
-  if (currentUser.role === Role.admin && targetMember.role !== Role.member) {
-    throw new Error("Admin can remove member only.");
-  }
-
-  const deletedMember = await prisma.workspaceUser.delete({
+  const member = await prisma.workspaceUser.findUnique({
     where: {
       id: memberId
     }
-  }); // Remove member from workspace
+  }); // Find member
 
-  return deletedMember;
+  if (!member || member.workspaceId !== workspaceId) {
+    throw new Error("Member not found.");
+  }
+
+  if (member.role === Role.owner) {
+    throw new Error("Owner cannot be removed.");
+  }
+
+  if (
+    currentUser.role === Role.admin &&
+    member.role !== Role.member
+  ) {
+    throw new Error("Admin can remove member only.");
+  }
+
+  if (
+    currentUser.role === Role.member
+  ) {
+    throw new Error("Member cannot remove users.");
+  }
+
+  await prisma.workspaceUser.delete({
+    where: {
+      id: memberId
+    }
+  }); // Remove member
+
+  return {
+    message: "Member removed successfully."
+  };
+
 };

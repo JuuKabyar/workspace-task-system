@@ -31,15 +31,27 @@ enum ProjectStatus {
   cancelled
 }
 
+enum TaskStatus {
+  todo
+  in_progress
+  done
+}
+
+enum TaskPriority {
+  low
+  medium
+  high
+}
+
 model Workspace {
-  id        Int     @id @default(autoincrement())
-  name      String
-  logo      String?
-  ownerId   Int?
+  id      Int     @id @default(autoincrement())
+  name    String
+  logo    String?
+  ownerId Int?
 
   users       WorkspaceUser[]
   invitations Invitation[]
-  projects Project[]
+  projects    Project[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -53,8 +65,8 @@ model User {
   avatar       String?
   refreshToken String?
 
-  workspaces       WorkspaceUser[]
-  sentInvitations  Invitation[] @relation("InvitedBy")
+  workspaces      WorkspaceUser[]
+  sentInvitations Invitation[]    @relation("InvitedBy")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -64,14 +76,15 @@ model WorkspaceUser {
   id Int @id @default(autoincrement())
 
   workspaceId Int
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   userId Int
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   role Role @default(member)
 
-  projects ProjectMember[]
+  projects      ProjectMember[]
+  assignedTasks Task[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -80,17 +93,17 @@ model WorkspaceUser {
 }
 
 model Invitation {
-  id      Int              @id @default(autoincrement())
-  email   String
-  role    Role
-  token String             @unique @db.VarChar(500)
-  status  InvitationStatus @default(pending)
+  id     Int              @id @default(autoincrement())
+  email  String
+  role   Role
+  token  String           @unique @db.VarChar(500)
+  status InvitationStatus @default(pending)
 
   workspaceId Int
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   invitedById Int
-  invitedBy User @relation("InvitedBy", fields: [invitedById], references: [id], onDelete: Cascade)
+  invitedBy   User @relation("InvitedBy", fields: [invitedById], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -99,19 +112,20 @@ model Invitation {
 model Project {
   id Int @id @default(autoincrement())
 
-  name String
+  name        String
   description String?
-  status ProjectStatus @default(planning)
+  status      ProjectStatus @default(planning)
 
   startDate DateTime?
-  endDate DateTime?
+  endDate   DateTime?
 
   createdById Int
 
   workspaceId Int
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   members ProjectMember[]
+  tasks   Task[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -121,12 +135,35 @@ model ProjectMember {
   id Int @id @default(autoincrement())
 
   projectId Int
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   workspaceUserId Int
-  workspaceUser WorkspaceUser @relation(fields: [workspaceUserId], references: [id], onDelete: Cascade)
+  workspaceUser   WorkspaceUser @relation(fields: [workspaceUserId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
 
   @@unique([projectId, workspaceUserId])
+}
+
+model Task {
+  id Int @id @default(autoincrement())
+
+  title       String
+  description String?
+
+  status   TaskStatus   @default(todo)
+  priority TaskPriority @default(medium)
+
+  dueDate DateTime?
+
+  projectId Int
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  assigneeId Int?
+  assignee   WorkspaceUser? @relation(fields: [assigneeId], references: [id], onDelete: SetNull)
+
+  createdById Int
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

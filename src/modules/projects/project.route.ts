@@ -7,12 +7,12 @@ import { roleMiddleware } from "../../middlewares/role.middleware";
 
 const router = express.Router();
 
-router.post("/", authMiddleware, roleMiddleware(["owner", "admin"]), createProject);
-router.get("/", authMiddleware, getProjects);
-router.get("/:projectId", authMiddleware, getProjectById);
-router.patch("/:projectId", authMiddleware, roleMiddleware(["owner", "admin"]), updateProject);
-router.delete("/:projectId", authMiddleware, roleMiddleware(["owner"]), deleteProject);
-router.post("/:projectId/members", authMiddleware, roleMiddleware(["owner", "admin"]), assignMemberToProject);
-router.delete("/:projectId/members/:workspaceUserId", authMiddleware, roleMiddleware(["owner", "admin"]), removeMemberFromProject);
+router.post("/:workspaceId", authMiddleware, roleMiddleware(["owner", "admin"]), createProject);
+router.get("/:workspaceId", authMiddleware, getProjects);
+router.get("/:workspaceId/:projectId", authMiddleware, getProjectById);
+router.patch("/:workspaceId/:projectId", authMiddleware, roleMiddleware(["owner", "admin"]), updateProject);
+router.delete("/:workspaceId/:projectId", authMiddleware, roleMiddleware(["owner"]), deleteProject);
+router.post("/:workspaceId/:projectId/members", authMiddleware, roleMiddleware(["owner", "admin"]), assignMemberToProject);
+router.delete("/:workspaceId/:projectId/members/:workspaceUserId", authMiddleware, roleMiddleware(["owner", "admin"]), removeMemberFromProject);
 
 export default router;
