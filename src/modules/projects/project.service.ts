@@ -1,5 +1,6 @@
 import { prisma } from "../../lib/prisma";
 import { Role, ProjectStatus } from "../../../generated/prisma/client";
+import { createActivityLogService } from "../activity-log/activityLog.service";
 
 
 // Create Project
@@ -41,12 +42,19 @@ export const createProjectService = async (userId: number, workspaceId: number, 
     }
   }); // Add creator to project
 
+  await createActivityLogService(
+    workspaceId,
+    workspaceUser.id,
+    "PROJECT_CREATED",
+    `Project "${project.name}" was created.`
+  ); // Create activity log
+
   return project;
 };
 
 
 // Get Projects
-export const getProjectsService = async (userId: number, workspaceId: number) => {
+export const getProjectsService = async (userId: number, workspaceId: number, search?: string, status?: string) => {
   const workspaceUser = await prisma.workspaceUser.findFirst({
     where: {
       userId: userId,
@@ -65,10 +73,26 @@ export const getProjectsService = async (userId: number, workspaceId: number) =>
           some: {
             workspaceUserId: workspaceUser.id
           }
-        }
+        },
+        ...(search && {
+          name: {
+            contains: search
+          }
+        }),
+        ...(status && {
+          status: status as ProjectStatus
+        })
       }
     : {
-        workspaceId: workspaceId
+        workspaceId: workspaceId,
+        ...(search && {
+          name: {
+            contains: search
+          }
+        }),
+        ...(status && {
+          status: status as ProjectStatus
+        })
       };
 
   const projects = await prisma.project.findMany({

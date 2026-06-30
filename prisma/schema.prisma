@@ -49,9 +49,12 @@ model Workspace {
   logo    String?
   ownerId Int?
 
-  users       WorkspaceUser[]
-  invitations Invitation[]
-  projects    Project[]
+  users         WorkspaceUser[]
+  invitations   Invitation[]
+  projects      Project[]
+  comments      TaskComment[]
+  activityLogs  ActivityLog[]
+  notifications Notification[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -85,6 +88,9 @@ model WorkspaceUser {
 
   projects      ProjectMember[]
   assignedTasks Task[]
+  comments      TaskComment[]
+  activityLogs  ActivityLog[]
+  notifications Notification[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -156,6 +162,9 @@ model Task {
 
   dueDate DateTime?
 
+  comments      TaskComment[]
+  notifications Notification[]
+
   projectId Int
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
@@ -166,4 +175,56 @@ model Task {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model TaskComment {
+  id Int @id @default(autoincrement())
+
+  content String
+
+  taskId Int
+  task   Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  workspaceId Int
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  authorId Int
+  author   WorkspaceUser @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ActivityLog {
+  id Int @id @default(autoincrement())
+
+  action  String
+  message String
+
+  workspaceId Int
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  actorId Int?
+  actor   WorkspaceUser? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+}
+
+model Notification {
+  id Int @id @default(autoincrement())
+
+  title   String
+  message String
+  isRead  Boolean @default(false)
+
+  workspaceId Int
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  userId Int
+  user   WorkspaceUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  taskId Int?
+  task   Task? @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
 }

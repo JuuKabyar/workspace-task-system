@@ -2,6 +2,7 @@ import { prisma } from "../../lib/prisma";
 import { Role } from "../../../generated/prisma/enums";
 import { sendMail } from "../../utils/mail";
 import { generateInvitationToken, verifyInvitationToken } from "../../utils/jwt";
+import { createActivityLogService } from "../activity-log/activityLog.service";
 
 // Invite User
 export const inviteUserService = async (invitedById: number, workspaceId: number, email: string, role: Role) => {
@@ -88,6 +89,13 @@ export const inviteUserService = async (invitedById: number, workspaceId: number
   `;
 
   await sendMail(email, "Workspace Invitation", html); // Send invitation email
+
+  await createActivityLogService(
+    workspaceId,
+    inviter.id,
+    "USER_INVITED",
+    `${email} was invited as ${role}.`
+  ); // Create activity log
 
   return {
     id: updatedInvitation.id,

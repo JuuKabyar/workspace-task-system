@@ -7,6 +7,9 @@ import memberRoutes from "./modules/members/member.route";
 import projectRoutes from "./modules/projects/project.route";
 import taskRoutes from "./modules/tasks/task.route";
 import dashboardRoutes from "./modules/dashboard/dashboard.route";
+import commentRoutes from "./modules/comments/comment.route";
+import activityLogRoutes from "./modules/activity-log/activityLog.route";
+import notificationRoutes from "./modules/notification/notification.route"
 
 import { errorMiddleware } from "./middlewares/error.middleware";
 
@@ -24,6 +27,9 @@ app.use("/api/members", memberRoutes);
 app.use("/api/projects", projectRoutes);
 app.use("/api/tasks", taskRoutes);
 app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/comments", commentRoutes);
+app.use("/api/activitylogs", activityLogRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 app.use(errorMiddleware);
 

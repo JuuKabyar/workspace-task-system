@@ -1,9 +1,7 @@
 import { Request, Response, NextFunction } from "express";
-
 import { createTaskService, getTasksService, getTaskByIdService, updateTaskService, updateMyTaskStatusService, deleteTaskService } from "./task.service";
-
 import { successResponse } from "../../utils/response";
-
+import { TaskStatus } from "../../../generated/prisma/client";
 
 // Create Task
 export const createTask = async (req: Request, res: Response, next: NextFunction) => {
@@ -44,12 +42,15 @@ export const getTasks = async (req: Request, res: Response, next: NextFunction) 
   try {
 
     const workspaceId = Number(req.params.workspaceId);
+    const search = req.query.search as string;
+    const status = req.query.status as string;
+    const assigneeId = req.query.assigneeId ? Number(req.query.assigneeId) : undefined;
 
     if (!workspaceId) {
       throw new Error("Workspace id is required.");
     }
 
-    const result = await getTasksService(req.user!.userId, workspaceId); // Get tasks
+    const result = await getTasksService(req.user!.userId, workspaceId, search, status, assigneeId); // Get tasks
 
     return successResponse(res, 200, "Tasks fetched successfully.", result);
 

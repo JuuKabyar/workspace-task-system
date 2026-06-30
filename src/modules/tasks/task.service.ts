@@ -1,5 +1,7 @@
 import { prisma } from "../../lib/prisma";
 import { Role, TaskStatus, TaskPriority } from "../../../generated/prisma/client";
+import { createActivityLogService } from "../activity-log/activityLog.service";
+import { createNotificationService } from "../notification/notification.service";
 
 // Create Task
 export const createTaskService = async (userId: number, workspaceId: number, projectId: number, title: string, description?: string, assigneeId?: number, priority?: TaskPriority, dueDate?: string) => {
@@ -69,12 +71,28 @@ export const createTaskService = async (userId: number, workspaceId: number, pro
     }
   }); // Create task
 
+  await createActivityLogService(
+    workspaceId,
+    workspaceUser.id,
+    "TASK_CREATED",
+    `Task "${task.title}" was created.`
+  ); // Create activity log
+
+  if (assigneeId) {
+    await createNotificationService(
+      workspaceId,
+      assigneeId,
+      task.id,
+      "New Task Assigned",
+      `You have been assigned task "${task.title}".`
+    ); // Create notification
+  }
+
   return task;
 };
 
-
 // Get Tasks
-export const getTasksService = async (userId: number, workspaceId: number) => {
+export const getTasksService = async (userId: number, workspaceId: number, search?: string, status?: string, assigneeId?: number) => {
   const workspaceUser = await prisma.workspaceUser.findFirst({
     where: {
       userId: userId,
@@ -86,17 +104,53 @@ export const getTasksService = async (userId: number, workspaceId: number) => {
     throw new Error("You do not have access to this workspace.");
   }
 
+  if (assigneeId && workspaceUser.role === Role.member) {
+    throw new Error("Member cannot filter tasks by assignee.");
+  }
+
+  if (assigneeId) {
+    const assignee = await prisma.workspaceUser.findFirst({
+      where: {
+        id: assigneeId,
+        workspaceId: workspaceId
+      }
+    }); // Check assignee
+
+    if (!assignee) {
+      throw new Error("Assignee not found in this workspace.");
+    }
+  }
+
   const whereCondition = workspaceUser.role === Role.member
     ? {
+        assigneeId: workspaceUser.id,
         project: {
           workspaceId: workspaceId
         },
-        assigneeId: workspaceUser.id
+        ...(search && {
+          title: {
+            contains: search
+          }
+        }),
+        ...(status && {
+          status: status as TaskStatus
+        })
       }
     : {
         project: {
           workspaceId: workspaceId
-        }
+        },
+        ...(search && {
+          title: {
+            contains: search
+          }
+        }),
+        ...(status && {
+          status: status as TaskStatus
+        }),
+        ...(assigneeId && {
+          assigneeId: assigneeId
+        })
       };
 
   const tasks = await prisma.task.findMany({
@@ -244,6 +298,16 @@ export const updateTaskService = async (userId: number, workspaceId: number, tas
     }
   }); // Update task
 
+  if (assigneeId && assigneeId !== task.assigneeId) {
+    await createNotificationService(
+      workspaceId,
+      assigneeId,
+      updatedTask.id,
+      "Task Assigned",
+      `You have been assigned task "${updatedTask.title}".`
+    ); // Create notification
+  }
+
   return updatedTask;
 };
 
@@ -286,6 +350,13 @@ export const updateMyTaskStatusService = async (userId: number, workspaceId: num
       status: status
     }
   }); // Update status
+
+  await createActivityLogService(
+    workspaceId,
+    workspaceUser.id,
+    "TASK_STATUS_UPDATED",
+    `Task "${task.title}" status changed to "${status}".`
+  ); // Create activity log
 
   return updatedTask;
 };

@@ -1,9 +1,7 @@
 import { Request, Response, NextFunction } from "express";
-
 import { createProjectService, getProjectsService, getProjectByIdService, updateProjectService, deleteProjectService, assignMemberToProjectService, removeMemberFromProjectService } from "./project.service";
-
 import { successResponse } from "../../utils/response";
-
+import { ProjectStatus } from "../../../generated/prisma/client";
 
 // Create Project
 export const createProject = async (req: Request, res: Response, next: NextFunction) => {
@@ -33,16 +31,19 @@ export const createProject = async (req: Request, res: Response, next: NextFunct
 
 
 // Get Projects
+// Get Projects
 export const getProjects = async (req: Request, res: Response, next: NextFunction) => {
   try {
 
     const workspaceId = Number(req.params.workspaceId);
+    const search = req.query.search as string;
+    const status = req.query.status as string;
 
     if (!workspaceId) {
       throw new Error("Workspace id is required.");
     }
 
-    const result = await getProjectsService(req.user!.userId, workspaceId); // Get projects
+    const result = await getProjectsService(req.user!.userId, workspaceId, search, status); // Get projects
 
     return successResponse(res, 200, "Projects fetched successfully.", result);
 
